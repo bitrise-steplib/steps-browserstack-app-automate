@@ -1,0 +1,66 @@
+title: BrowserStack - App Automate
+summary: Instant automated Mobile App testing on real mobile devices on BrowserStack.
+description: Instant automated Mobile App testing on real mobile devices on BrowserStack.
+website: https://github.com/bitrise-steplib/steps-browserstack-app-automate
+source_code_url: https://github.com/bitrise-steplib/steps-browserstack-app-automate
+support_url: https://github.com/bitrise-steplib/steps-browserstack-app-automate/issues
+
+project_type_tags:
+  - ios
+  - macos
+  - android
+  - xamarin
+  - react-native
+  - cordova
+  - ionic
+type_tags:
+  - test
+
+is_requires_admin_user: true
+is_always_run: false
+is_skippable: false
+run_if: ""
+
+deps:
+  brew:
+  - name: curl
+  apt_get:
+  - name: curl
+
+toolkit:
+  go:
+    package_name: github.com/bitrise-steplib/bitrise-step-browserstack---app-automate
+
+inputs:
+  - acces_key:
+    opts:
+      title: BrowserStack Automate Access Key
+      description: |-
+        You can get it in the `App Automate` section on [https://www.browserstack.com/accounts/settings](https://www.browserstack.com/accounts/settings)
+      is_required: true
+      is_sensitive: true
+
+  - test_type: XCUITests
+    opts:
+      title: Test type to run on BrowserStack
+      is_required: true
+      value_options: [XCUITests]
+
+  - xcuitests_ipa: $BITRISE_IPA_PATH
+    opts:
+      category: XCUITests
+      title: Your iOS app (.ipa file)
+      description: |-
+          BrowserStack needs an **Development** IPA from your iOS application,
+          with that they will be able to run your application on **Real Devices**.
+
+  - xcuitests_runner: $XCUITESTS_RUNNER
+    opts:
+      category: XCUITests
+      title: XCUITests-Runner zip
+      description: |-
+          The Zip file which contains your <AppnameUITests>-Runner.app.
+      
+          **You can read more about it under the `Step 2: Upload your test` section:** [https://www.browserstack.com/app-automate/xcuitest/get-started](https://www.browserstack.com/app-automate/xcuitest/get-started)
+
+outputs:
