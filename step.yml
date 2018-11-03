@@ -29,16 +29,27 @@ deps:
 
 toolkit:
   go:
-    package_name: github.com/bitrise-steplib/bitrise-step-browserstack---app-automate
+    package_name: github.com/bitrise-steplib/steps-browserstack-app-automate
 
 inputs:
-  - acces_key:
+  - access_key:
     opts:
       title: BrowserStack Automate Access Key
       description: |-
         You can get it in the `App Automate` section on [https://www.browserstack.com/accounts/settings](https://www.browserstack.com/accounts/settings)
       is_required: true
       is_sensitive: true
+
+  - user_name:
+    opts:
+      title: The user name of your BrowserStack account
+      summary: |
+        **NOTE:** Not your e-mail address.
+      description: |-
+        **NOTE:** Not your e-mail address.
+
+        You can get it in the `App Automate` section on [https://www.browserstack.com/accounts/settings](https://www.browserstack.com/accounts/settings)
+      is_required: true
 
   - test_type: XCUITests
     opts:
@@ -54,7 +65,7 @@ inputs:
           BrowserStack needs an **Development** IPA from your iOS application,
           with that they will be able to run your application on **Real Devices**.
 
-  - xcuitests_runner: $XCUITESTS_RUNNER
+  - xcuitests_runner:
     opts:
       category: XCUITests
       title: XCUITests-Runner zip
@@ -62,5 +73,21 @@ inputs:
           The Zip file which contains your <AppnameUITests>-Runner.app.
       
           **You can read more about it under the `Step 2: Upload your test` section:** [https://www.browserstack.com/app-automate/xcuitest/get-started](https://www.browserstack.com/app-automate/xcuitest/get-started)
+  
+  - xcuitests_device_logs: "true"
+    opts:
+      category: XCUITests
+      title: Device logs
+      summary: Set this parameter if you want to enable the device logs
+      is_required: true
+      value_options: [XCUITests]
+
+  - xcuitests_devices: "iPhone 8 Plus-11.0"
+    opts:
+      category: XCUITests
+      title: Devices
+      summary: "List of Device and OS version ( separated with `|` ) you want to run your tests on. Acceptable format is -. Example: `iPhone 7 Plus-11.0|iPhone 8 Plus-12.0`"
+      description: |-
+          List of Device and OS version ( separated with `|` ) you want to run your tests on. Acceptable format is -. Example: `iPhone 7 Plus-11.0|iPhone 8 Plus-12.0`
 
 outputs:

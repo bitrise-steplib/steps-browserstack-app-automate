@@ -8,16 +8,20 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/bitrise-io/go-utils/log"
 	"github.com/bitrise-tools/go-steputils/stepconf"
-	"github.com/lunny/log"
 )
 
 const (
-	ipaEndpoint        = "https://api-cloud.browserstack.com/app-automate/upload"
-	testRunnerEndpoint = "https://api-cloud.browserstack.com/app-automate/xcuitest/test-suite"
+	ipaEndpoint          = "https://api-cloud.browserstack.com/app-automate/upload"
+	testRunnerEndpoint   = "https://api-cloud.browserstack.com/app-automate/xcuitest/test-suite"
+	buildEndPoint        = "https://api-cloud.browserstack.com/app-automate/xcuitest/build"
+	buildSummaryEndPoint = "https://api-cloud.browserstack.com/app-automate/xcuitest/builds/"
 )
 
 // XCUITests ...
@@ -27,12 +31,31 @@ type XCUITests struct {
 	httpClient *http.Client
 }
 
+// Test ...
+type Test struct {
+	Devices    []string `json:"devices"`
+	App        string   `json:"app"`
+	DeviceLogs bool     `json:"deviceLogs"`
+	TestSuite  string   `json:"testSuite"`
+}
+
 type uploadIPAResponse struct {
 	AppURL string `json:"app_url"`
 }
 
 type uploadTestRunnerResponse struct {
 	TestURL string `json:"test_url"`
+}
+
+type executeTestResponse struct {
+	Message string `json:"message"`
+	BuildID string `json:"build_id"`
+}
+
+// BuildResult ...
+type BuildResult struct {
+	Build Build
+	Error error
 }
 
 //
@@ -45,36 +68,6 @@ func NewXCUITests(accesKey stepconf.Secret, userName string) *XCUITests {
 		UserName:   userName,
 		httpClient: &http.Client{},
 	}
-}
-
-// Creates a new file upload http request with optional extra params
-func newfileUploadRequest(uri string, params map[string]string, paramName, path string) (*http.Request, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile(paramName, filepath.Base(path))
-	if err != nil {
-		return nil, err
-	}
-	_, err = io.Copy(part, file)
-
-	for key, val := range params {
-		_ = writer.WriteField(key, val)
-	}
-	err = writer.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", uri, body)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.SetBasicAuth("akosbirmacher1", "xD4vYRrzWyzZFVFCawGd")
-	return req, err
 }
 
 // UploadIPA uploads your iOS app (.ipa file) to the BrowserStack servers using the REST API.
@@ -153,10 +146,81 @@ func (x XCUITests) UploadTestRunner(runner string) (string, error) {
 	return response.TestURL, nil
 }
 
+// ExecuteTest execute your test for the provided app
+func (x XCUITests) ExecuteTest(appURL, testURL string, deviceLogs bool, devices []string) (string, string, error) {
+	data := Test{
+		App:        appURL,
+		TestSuite:  testURL,
+		DeviceLogs: deviceLogs,
+		Devices:    devices,
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return "", "", err
+	}
+
+	body := bytes.NewReader(b)
+
+	req, err := http.NewRequest(http.MethodPost, buildEndPoint, body)
+	if err != nil {
+		// handle err
+	}
+	req.SetBasicAuth(x.UserName, string(x.AccessKey))
+	req.Header.Set("Content-Type", "application/json")
+
+	var response executeTestResponse
+	_, err = x.performRequest(req, &response)
+	if err != nil {
+		return "", "", err
+	}
+
+	return response.Message, response.BuildID, nil
+}
+
+// ListenForTestComplete ...
+func (x XCUITests) ListenForTestComplete(buildID string, ch chan BuildResult) {
+	var isDone bool
+	u, err := url.Parse(buildID)
+	if err != nil {
+		ch <- BuildResult{Build: Build{}, Error: err}
+	}
+
+	base, err := url.Parse(buildSummaryEndPoint)
+	if err != nil {
+		ch <- BuildResult{Build: Build{}, Error: err}
+	}
+
+	req, err := http.NewRequest(http.MethodGet, base.ResolveReference(u).String(), nil)
+	if err != nil {
+		ch <- BuildResult{Build: Build{}, Error: err}
+	}
+
+	req.SetBasicAuth(x.UserName, string(x.AccessKey))
+
+	for !isDone {
+		var response Build
+		_, err = x.performRequest(req, &response)
+		if err != nil {
+			ch <- BuildResult{Build: Build{}, Error: err}
+		}
+
+		if response.Status == "done" {
+			log.Warnf("Still: %+v", response)
+			ch <- BuildResult{Build: response, Error: nil}
+			isDone = true
+		}
+
+		if !isDone {
+			time.Sleep(30 * time.Second)
+		}
+	}
+}
+
 //
 //// Private methods
 
-func (x *XCUITests) performRequest(req *http.Request, requestResponse interface{}) ([]byte, error) {
+func (x XCUITests) performRequest(req *http.Request, requestResponse interface{}) ([]byte, error) {
 	response, err := x.httpClient.Do(req)
 	if err != nil {
 		// On error, any Response can be ignored
