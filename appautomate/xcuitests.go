@@ -76,7 +76,8 @@ func (x XCUITests) UploadIPA(ipa string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+
+	defer safeClose(file, &err)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -114,7 +115,8 @@ func (x XCUITests) UploadTestRunner(runner string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+
+	defer safeClose(file, &err)
 
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -250,4 +252,10 @@ func (x XCUITests) performRequest(req *http.Request, requestResponse interface{}
 		}
 	}
 	return body, nil
+}
+
+func safeClose(c io.Closer, err *error) {
+	if cerr := c.Close(); cerr != nil && *err == nil {
+		*err = cerr
+	}
 }

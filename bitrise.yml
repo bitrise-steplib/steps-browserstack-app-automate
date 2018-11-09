@@ -4,28 +4,32 @@ default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
 app:
   envs:
   # Define it (A_SECRET_PARAM) in .bitrise.secrets.yml
-  # - ACCESS_KEY: $ACCESS_KEY
-  # - USE_NAME: $USER_NAME
-
-  - ACCESS_KEY: xD4vYRrzWyzZFVFCawGd
-  - USER_NAME: akosbirmacher1
-  
-  - BITRISE_IPA_PATH: "/Users/akosbirmacher/Develop/Test_files/BullsEye/BullsEye_Dev_IPA/BullsEye.ipa"
-  - XCUITESTS_RUNNER: "/Users/akosbirmacher/Develop/Test_files/BullsEye/BullsEyeUITests-Runner.app.zip"
+  - ACCESS_KEY: $ACCESS_KEY
+  - USE_NAME: $USER_NAME
 
 workflows:
-  test:
+  ci:
     before_run:
-    # - audit-this-step
+    - audit-this-step
     steps:
-    # - go-list:
-    # - golint:
-    # - errcheck:
-    # - go-test:
+    - go-list:
+    - golint:
+    - errcheck:
+    - go-test:
     after_run:
     - test_xcuitests
 
   test_xcuitests:
+    envs:
+    - SAMPLE_APP_URL: https://github.com/bitrise-samples/sample-swift-project-with-parallel-ui-test.git
+    - INFO_PLIST_PATH: "./BullsEye/Info.plist"
+    - BITRISE_PROJECT_PATH: "./BullsEye.xcodeproj"
+    - BITRISE_SCHEME: BullsEye
+    after_run:
+    - export_ipa
+    - test
+    
+  test:
     steps:
     - change-workdir:
         title: Switch working dir to test / _tmp dir
@@ -47,6 +51,36 @@ workflows:
         - test_type: XCUITests
         - xcuitests_ipa: $BITRISE_IPA_PATH
         - xcuitests_runner: $XCUITESTS_RUNNER
+
+  export_ipa:
+    steps:
+    - script:
+        inputs:
+        - content: rm -rf ./_tmp
+    - change-workdir:
+        run_if: true
+        inputs:
+        - path: "./_tmp"
+        - is_create_path: true
+    - script:
+        inputs:
+        - content: |
+            #!/bin/bash
+            set -ex
+            git clone $SAMPLE_APP_URL .
+    - ios-auto-provision@1.2.0:
+        inputs:
+        - generate_profiles: 'yes'
+        - distribution_type: development
+    - xcode-archive:
+        title: Create Archive
+        inputs:
+        - output_dir: "$BITRISE_DEPLOY_DIR"
+        - project_path: "$BITRISE_PROJECT_PATH"
+        - force_team_id: ''
+        - export_method: development
+        - force_code_sign_identity: ''
+    - deploy-to-bitrise-io: {}
 
   # ----------------------------------------------------------------
   # --- workflows to Share this step into a Step Library
