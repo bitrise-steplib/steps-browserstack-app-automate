@@ -3,13 +3,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e551ceb94a065ee556c01d4633541f29812ec894c5d684b34cb7b2208321c690"
+  digest = "1:84562e00c5d124039d6051196079b4bda9b1927037fd3b76ca3f2c5d43d926ae"
   name = "github.com/bitrise-io/go-utils"
   packages = [
     "colorstring",
     "log",
     "parseutil",
     "pointers",
+    "retry",
   ]
   pruneopts = "UT"
   revision = "d1de0dbcb811588e61362aff67bb700b93c13c17"
@@ -67,6 +68,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/bitrise-io/go-utils/log",
+    "github.com/bitrise-io/go-utils/retry",
     "github.com/bitrise-tools/go-steputils/stepconf",
     "github.com/briandowns/spinner",
   ]

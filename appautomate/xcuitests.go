@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/bitrise-io/go-utils/log"
+	"github.com/bitrise-io/go-utils/retry"
 	"github.com/bitrise-tools/go-steputils/stepconf"
 )
 
@@ -234,6 +235,8 @@ func (x XCUITests) FetchSession(buildID, sessionID string) (Session, error) {
 		return Session{}, err
 	}
 
+	log.Warnf(base.ResolveReference(u).String())
+
 	req, err := http.NewRequest(http.MethodGet, base.ResolveReference(u).String(), nil)
 	if err != nil {
 		return Session{}, err
@@ -241,8 +244,13 @@ func (x XCUITests) FetchSession(buildID, sessionID string) (Session, error) {
 	req.SetBasicAuth(x.UserName, string(x.AccessKey))
 
 	var session Session
-	_, err = x.performRequest(req, &session)
-	if err != nil {
+	if err := retry.Times(3).Wait(5 * time.Second).Try(func(attempt uint) error {
+		_, err = x.performRequest(req, &session)
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return Session{}, err
 	}
 
