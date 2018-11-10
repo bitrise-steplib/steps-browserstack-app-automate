@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -29,6 +30,8 @@ type Config struct {
 	XCUITestsRunner     string          `env:"xcuitests_runner"`
 	XCUITestsDeviceLogs bool            `env:"xcuitests_device_logs"`
 	XCUITestsDevices    string          `env:"xcuitests_devices"`
+
+	Verbose bool `env:"verbose,opt[true,false]"`
 }
 
 func main() {
@@ -39,11 +42,13 @@ func main() {
 
 	stepconf.Print(cfg)
 	fmt.Println()
+	log.SetEnableDebugLog(cfg.Verbose)
 
 	switch cfg.TestType {
 	case string(XCUITests):
 		xcuitests := appautomate.NewXCUITests(cfg.AccesKey, cfg.UserName)
 
+		//
 		// Upload app
 		log.Infof("Uploading IPA")
 		appURL, err := xcuitests.UploadIPA(cfg.XCUITestsIPA)
@@ -55,6 +60,7 @@ func main() {
 		log.Donef("Uploaded app URL => %s", appURL)
 		fmt.Println()
 
+		//
 		// Upload test runner
 		log.Infof("Uploading UITest runner")
 		testURL, err := xcuitests.UploadTestRunner(cfg.XCUITestsRunner)
@@ -66,23 +72,31 @@ func main() {
 		log.Donef("Uploaded test URL => %s", testURL)
 		fmt.Println()
 
+		//
 		// Execute test
 		log.Infof("Executing test")
-		devices := strings.Split(cfg.XCUITestsDevices, "|")
-		message, buildID, err := xcuitests.ExecuteTest(appURL, testURL, cfg.XCUITestsDeviceLogs, devices)
-		if err != nil {
-			failf("Failed to execute test, error: %s", err)
-		}
+		var buildID string
+		{
+			var message string
+			var err error
+			devices := strings.Split(cfg.XCUITestsDevices, "|")
 
-		log.Printf("Respond: %s", message)
-		log.Donef("Build ID => %s", buildID)
-		fmt.Println()
+			message, buildID, err = xcuitests.ExecuteTest(appURL, testURL, cfg.XCUITestsDeviceLogs, devices)
+			if err != nil {
+				failf("Failed to execute test, error: %s", err)
+			}
 
-		if message != "Success" {
-			failf("Failed to execute test")
+			log.Printf("Respond: %s", message)
+			log.Donef("Build ID => %s", buildID)
+			fmt.Println()
+
+			if message != "Success" {
+				failf("Failed to execute test")
+			}
 		}
 
 		log.Infof("Test running")
+		var devices []appautomate.Device
 		{
 			ch := make(chan appautomate.BuildResult)
 
@@ -93,7 +107,49 @@ func main() {
 			buildResult := <-ch
 			s.Stop()
 
-			log.Printf("buildResult: %+v", buildResult)
+			if cfg.Verbose {
+				log.Infof("Build:")
+				logPretty(buildResult.Build)
+			}
+
+			for key, device := range buildResult.Build.Devices {
+				device.Name = key
+				devices = append(devices, device)
+			}
+		}
+
+		log.Donef("Test finished")
+		fmt.Println()
+
+		log.Infof("Fetch test sessions")
+		var sessions []appautomate.Session
+		{
+			for _, device := range devices {
+				session, err := xcuitests.FetchSession(buildID, device.SessionID)
+				if err != nil {
+					log.Warnf("Failed to fetch session: (%s), error: %s", session.SessionID, err)
+					continue
+				}
+
+				sessions = append(sessions, session)
+			}
+		}
+
+		if cfg.Verbose {
+			logPretty(sessions)
+			fmt.Println()
+		}
+
+		for _, session := range sessions {
+			log.Infof("Session: %s", session.SessionID)
+			logPretty(session.SessionTestStatus)
+			fmt.Println()
+
+			for testName, testDetail := range session.TestDetails {
+				log.Infof("%s", testName)
+				logPretty(testDetail)
+				fmt.Println()
+			}
 		}
 
 	}
@@ -103,4 +159,13 @@ func main() {
 func failf(format string, v ...interface{}) {
 	log.Errorf(format, v...)
 	os.Exit(1)
+}
+
+func logPretty(v interface{}) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+
+	log.Printf(string(b))
 }

@@ -90,4 +90,16 @@ inputs:
       description: |-
           List of Device and OS version ( separated with `|` ) you want to run your tests on. Acceptable format is -. Example: `iPhone 7 Plus-11.0|iPhone 8 Plus-12.0`
 
+  - verbose: "false"
+    opts:
+      category: Debug
+      title: Enable verbose logging
+      summary: "Enable verbose log option for better debug"
+      description: "Enable verbose log option for better debug"
+      is_expand: true
+      is_required: true
+      value_options:
+        - "true"
+        - "false"
+
 outputs:

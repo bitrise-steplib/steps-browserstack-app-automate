@@ -24,6 +24,10 @@ const (
 	buildSummaryEndPoint = "https://api-cloud.browserstack.com/app-automate/xcuitest/builds/"
 )
 
+var sessionEndPoint = func(buildID string) string {
+	return fmt.Sprintf("https://api-cloud.browserstack.com/app-automate/xcuitest/builds/%s/sessions/", buildID)
+}
+
 // XCUITests ...
 type XCUITests struct {
 	AccessKey  stepconf.Secret
@@ -208,7 +212,6 @@ func (x XCUITests) ListenForTestComplete(buildID string, ch chan BuildResult) {
 		}
 
 		if response.Status == "done" {
-			log.Warnf("Still: %+v", response)
 			ch <- BuildResult{Build: response, Error: nil}
 			isDone = true
 		}
@@ -217,6 +220,33 @@ func (x XCUITests) ListenForTestComplete(buildID string, ch chan BuildResult) {
 			time.Sleep(30 * time.Second)
 		}
 	}
+}
+
+// FetchSession to get the details of your test sessions. Each session is the execution of your test suite on individual devices.
+func (x XCUITests) FetchSession(buildID, sessionID string) (Session, error) {
+	u, err := url.Parse(sessionID)
+	if err != nil {
+		return Session{}, err
+	}
+
+	base, err := url.Parse(sessionEndPoint(buildID))
+	if err != nil {
+		return Session{}, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, base.ResolveReference(u).String(), nil)
+	if err != nil {
+		return Session{}, err
+	}
+	req.SetBasicAuth(x.UserName, string(x.AccessKey))
+
+	var session Session
+	_, err = x.performRequest(req, &session)
+	if err != nil {
+		return Session{}, err
+	}
+
+	return session, nil
 }
 
 //

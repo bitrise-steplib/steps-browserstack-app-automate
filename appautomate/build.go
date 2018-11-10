@@ -43,6 +43,7 @@ type Device struct {
 	Status         string     `json:"status"`
 	SessionDetails string     `json:"session_details"`
 	TestStatus     TestStatus `json:"test_status"`
+	Name           string
 }
 
 // TestStatus ...
