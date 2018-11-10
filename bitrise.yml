@@ -25,6 +25,9 @@ workflows:
     - INFO_PLIST_PATH: "./BullsEye/Info.plist"
     - BITRISE_PROJECT_PATH: "./BullsEye.xcodeproj"
     - BITRISE_SCHEME: BullsEye
+    steps:
+    - certificate-and-profile-installer@1.10.1:
+        run_if: ".IsCI"
     after_run:
     - export_ipa
     - test_runner
@@ -93,10 +96,6 @@ workflows:
             #!/bin/bash
             set -ex
             git clone $SAMPLE_APP_URL .
-    - ios-auto-provision@1.2.0:
-        inputs:
-        - generate_profiles: 'yes'
-        - distribution_type: development
     - xcode-archive:
         title: Create Archive
         inputs:
