@@ -27,7 +27,32 @@ workflows:
     - BITRISE_SCHEME: BullsEye
     after_run:
     - export_ipa
+    - test_runner
     - test
+
+  test_runner:
+    steps:
+    - script@1.1.5:
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            # fail if any commands fails
+            set -e
+            # debug log
+            set -x
+
+            #Build for testing
+            xcodebuild -scheme BullsEye build-for-testing -derivedDataPath ./ddata
+
+            #cd to the last builded folder
+            cd ./ddata/Build/Products/; cd $(basename $(ls -lrt -d */ | tail -1) | tail -1)
+
+            #Zip the test-runner and move the archive to the BITRISE_DEPLOY_DIR
+            zip --symlinks -r $BITRISE_DEPLOY_DIR/UITests.zip *UITests-Runner.app
+    - set-env-var@0.9.1:
+        inputs:
+        - destination_keys: XCUITESTS_RUNNER
+        - value: "$BITRISE_DEPLOY_DIR/UITests.zip"
     
   test:
     steps:
